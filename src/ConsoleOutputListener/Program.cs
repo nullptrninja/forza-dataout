@@ -12,6 +12,7 @@ namespace ConsoleOutputListener {
 
             var server = new UdpListener<ForzaDataModel>(config, new ForzaGenericConverter());
             var unsubHandle = server.Subscribe(new WriteToConsoleObserver());
+            Console.WriteLine($"Listening on UDP Port: {config.ListenPort}");
             server.Start();
         }
     }
@@ -26,7 +27,9 @@ namespace ConsoleOutputListener {
         }
 
         public void OnNext(ForzaDataModel value) {
-            Console.WriteLine($"RPM: {value.Sled.CurrentEngineRpm}/{value.Sled.EngineMaxRpm}");
+            if (value.Sled.IsRaceOn == 1) {
+                Console.WriteLine($"RPM: {value.Sled.CurrentEngineRpm}/{value.Sled.EngineMaxRpm} GEAR: {value.CarDash.Value.Gear}");
+            }
         }
     }
 }

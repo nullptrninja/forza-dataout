@@ -1,5 +1,8 @@
-﻿namespace Core.Models {
+﻿using System.Runtime.InteropServices;
+
+namespace Core.Models {
 	// This is V1 Sled data (FM7 base data model)
+	[StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct SledData {
 		// = 1 when race is on. = 0 when in menus/race stopped …
 		public int IsRaceOn;
@@ -87,7 +90,7 @@
 		// Unique ID of the car make/model
 		public int CarOrdinal;
 
-		// Between 0 (D -- worst cars) and 7 (X class -- best cars) inclusive 
+		// Between 0 (D -- worst cars) and 7 (X class -- best cars) inclusive
 		public int CarClass;
 
 		// Between 100 (slowest car) and 999 (fastest car) inclusive

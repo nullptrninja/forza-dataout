@@ -4,17 +4,21 @@ using System.IO;
 using Marshal = System.Runtime.InteropServices.Marshal;
 
 namespace Core.Converters {
+	// A generic forza data converter. This converter should work for the following titles:
+	// Forza Motorsport 7
+	// Forza Horizon 4
     public class ForzaGenericConverter : IDataModelConverter<ForzaDataModel> {
         private static readonly int SledBytes = Marshal.SizeOf(typeof(SledData));
         private static readonly int CarDashBytes = Marshal.SizeOf(typeof(CarDashData));
+		private static readonly int HorizonCarDashBytes = 92;		// FH4 doesn't document its CarDash data model, this is just the difference other users
+																	// found between FH4 datagrams minus SledBytes from FM7. The size will cover at least the CarDashData structure.
 
-		// Can't seem to find any docs about what the extra 92 bytes actually contain. We'll just read it in as padding.
-		private static readonly int HorizonCarDashBytes = 92;
+		private static readonly int FH4PaddingBytes = 12;			// There's a 12 byte offset after the Sled in FH4. We can ignore this data for our purposes.
 
 		// The byte length of the entire datagram determines which protocol we use when reading
         private static readonly int ProtocolSledOnlySizeBytes = SledBytes;
         private static readonly int ProtocolSledAndCarDashSizeBytes = SledBytes + CarDashBytes;
-        private static readonly int ProtocolSledAndHorizonCarDashSizeBytes = SledBytes + 92;
+        private static readonly int ProtocolSledAndHorizonCarDashSizeBytes = SledBytes + HorizonCarDashBytes;
 
         public ForzaDataModel Convert(byte[] data) {
             var protocol = DetermineProtocol(data);
@@ -31,18 +35,14 @@ namespace Core.Converters {
 			using var streamReader = new BinaryReader(memStream);
 
 			// Every protocol has sled data at least
-			var sledData = ReadSled(streamReader);
+			fdm.Sled = ReadSled(streamReader);
 
-			// Sled-only is for older version of FM7 before SledV2. So if we're not Sled, we assume there's CarDash.
-			CarDashData carDashData;
-			if (protocol != ProtocolData.Sled) {
-				carDashData = ReadCarDash(streamReader);
-				fdm.CarDash = carDashData;
+			// CarDash is for V2 of the data packet in addition to Sled data. This was introduced in later version of FM7
+			if (protocol == ProtocolData.CarDash) {
+				fdm.CarDash = ReadCarDash(streamReader);
             }
-			
-			// Burn the next bytes for FH4 because we don't know what to do with it.
-			if (protocol == ProtocolData.HorizonCarDash) {
-				ReadHorizonCarDashData(streamReader);
+			else if (protocol == ProtocolData.HorizonCarDash) {
+				fdm.CarDash = ReadHorizonCarDashData(streamReader);
             }
 
 			return fdm;
@@ -178,8 +178,50 @@ namespace Core.Converters {
 			};
 		}
 
-		private static void ReadHorizonCarDashData(BinaryReader reader) {
-			reader.ReadBytes(HorizonCarDashBytes);
+		private static CarDashData ReadHorizonCarDashData(BinaryReader reader) {
+			// Read the padding of unknown FH4 bytes
+			reader.ReadBytes(FH4PaddingBytes);
+
+			// We can streamline by calling ReadCarDash() but since it's a struct we would make an extra copy
+			var dashData = new CarDashData {
+				PositionX = reader.ReadSingle(),
+				PositionY = reader.ReadSingle(),
+				PositionZ = reader.ReadSingle(),
+
+				Speed = reader.ReadSingle(),
+				Power = reader.ReadSingle(),
+				Torque = reader.ReadSingle(),
+
+				TireTempFrontLeft = reader.ReadSingle(),
+				TireTempFrontRight = reader.ReadSingle(),
+				TireTempRearLeft = reader.ReadSingle(),
+				TireTempRearRight = reader.ReadSingle(),
+
+				Boost = reader.ReadSingle(),
+				Fuel = reader.ReadSingle(),
+				DistanceTraveled = reader.ReadSingle(),
+				BestLap = reader.ReadSingle(),
+				LastLap = reader.ReadSingle(),
+				CurrentLap = reader.ReadSingle(),
+				CurrentRaceTime = reader.ReadSingle(),
+
+				LapNumber = reader.ReadUInt16(),
+				RacePosition = reader.ReadByte(),
+
+				Accel = reader.ReadByte(),
+				Brake = reader.ReadByte(),
+				Clutch = reader.ReadByte(),
+				HandBrake = reader.ReadByte(),
+				Gear = reader.ReadByte(),
+				Steer = reader.ReadSByte(),
+
+				NormalizedDrivingLine = reader.ReadSByte(),
+				NormalizedAIBrakeDifference = reader.ReadSByte()
+			};
+
+			// Note there's like an extra byte remaining in FH4, we don't need this (or know what to do with it)
+
+			return dashData;
         }
     }
 }

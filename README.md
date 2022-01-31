@@ -4,6 +4,7 @@ A DataOut library for various applications with Forza Motorsport and Forza Horiz
 ## Supported Titles
 - Forza Motorsport 7
 - Forza Horizon 4
+- Forza Horizon 5
 
 ## What is this?
 This repo contains a few components that you can use for your own projects:
